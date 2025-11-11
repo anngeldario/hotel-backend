@@ -1,15 +1,19 @@
 const mysql = require('mysql2');
 
-// Esta es la parte "inteligente"
-// Busca las variables de Railway primero. Si no existen, usa las locales.
-const connection = mysql.createConnection({
-    host: process.env.MYSQLHOST || 'localhost',
-    user: process.env.MYSQLUSER || 'root',
-    // Asegúrate de que esta sea tu contraseña local de MySQL
-    password: process.env.MYSQLPASSWORD || '16Di1983', 
-    database: process.env.MYSQLDATABASE || 'hotel_oasis_db',
-    port: process.env.MYSQLPORT || 3306 // Puerto local
-});
+let connection;
+
+// Si estamos en Railway, usamos la "super-llave" DATABASE_URL
+if (process.env.DATABASE_URL) {
+    connection = mysql.createConnection(process.env.DATABASE_URL);
+} else {
+    // Si estamos en tu compu, usamos las llaves locales
+    connection = mysql.createConnection({
+        host: 'localhost',
+        user: 'root',
+        password: '16Di1983', // Tu contraseña local
+        database: 'hotel_oasis_db'
+    });
+}
 
 connection.connect(error => {
     if (error) {
