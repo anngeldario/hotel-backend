@@ -1,26 +1,23 @@
 const mysql = require('mysql2');
 
-let connection;
+let pool;
 
 // Si estamos en Railway, usamos la "super-llave" DATABASE_URL
 if (process.env.DATABASE_URL) {
-    connection = mysql.createConnection(process.env.DATABASE_URL);
+    pool = mysql.createPool(process.env.DATABASE_URL);
 } else {
     // Si estamos en tu compu, usamos las llaves locales
-    connection = mysql.createConnection({
+    pool = mysql.createPool({
         host: 'localhost',
         user: 'root',
         password: '16Di1983', // Tu contraseña local
-        database: 'hotel_oasis_db'
+        database: 'hotel_oasis_db',
+        waitForConnections: true,
+        connectionLimit: 10,
+        queueLimit: 0
     });
 }
 
-connection.connect(error => {
-    if (error) {
-        console.error('Error al conectar a la base de datos:', error);
-        return;
-    }
-    console.log('¡Conexión exitosa a la base de datos!');
-});
-
-module.exports = connection;
+// Exportamos el "pool".
+// Ya no necesitamos .connect(), el pool lo hace solo.
+module.exports = pool;
