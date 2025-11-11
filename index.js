@@ -26,7 +26,7 @@ passport.use(new GoogleStrategy({
     // ¡IMPORTANTE! VUELVE A PEGAR TUS CREDENCIALES CORRECTAS AQUÍ
     clientID: '663221233013-nuneg2t42auu4ccptrdffnc1g1l2dpr1.apps.googleusercontent.com', // NO debe empezar con http://
     clientSecret: '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',
-    callbackURL: "http://localhost:4000/api/auth/google/callback"
+    callbackURL: "https://hotel-backend-production-ed93.up.railway.app/api/auth/google/callback"
 },
     (accessToken, refreshToken, profile, done) => {
         const { id, name, emails } = profile;
@@ -49,7 +49,7 @@ passport.use(new GoogleStrategy({
 passport.use(new FacebookStrategy({
     clientID: '1324693822497118',
     clientSecret: '31872c795ec0ff8bcd496afee643eb7a',
-    callbackURL: "http://localhost:4000/api/auth/facebook/callback",
+    callbackURL: "https://hotel-backend-production-ed93.up.railway.app/api/auth/facebook/callback",
     profileFields: ['id', 'displayName', 'emails'] // Pedimos estos datos a Facebook
 },
     function (accessToken, refreshToken, profile, done) {
