@@ -317,77 +317,104 @@ app.get('/api/habitaciones/:id', (req, res) => {
     });
 });
 
+// REEMPLAZA LA RUTA DE RESERVAS ROTA CON ESTA:
 app.post('/api/reservas', (req, res) => {
     const { id_habitacion, fecha_inicio, fecha_fin, num_huespedes, cliente } = req.body;
 
-    db.beginTransaction(err => {
-        if (err) return res.status(500).json({ mensaje: 'Error en servidor.' });
+    // ¡ESTE ES EL CAMBIO!
+    // 1. Pedimos un "vaso" (conexión) del "garrafón" (pool)
+    db.getConnection((err, connection) => {
+        if (err) return res.status(500).json({ mensaje: 'Error al conectar a la base de datos.' });
 
-        const checkAvailabilitySQL = `
-            SELECT th.precio_base FROM habitacion h
-            JOIN tipos_habitacion th ON h.id_tipo = th.id_tipo
-            WHERE h.id_habitacion = ? AND h.id_habitacion NOT IN (
-                SELECT id_habitacion FROM reservas
-                WHERE (fecha_inicio < ? AND fecha_fin > ?) AND estado != 'Cancelada'
-            ) FOR UPDATE;
-        `;
-
-        db.query(checkAvailabilitySQL, [id_habitacion, fecha_fin, fecha_inicio], (err, results) => {
-            if (err || results.length === 0) {
-                return db.rollback(() => res.status(409).json({ mensaje: 'Habitación no disponible.' }));
+        // 2. Ahora sí, le decimos a ESE "vaso" que inicie la transacción
+        connection.beginTransaction(err => {
+            if (err) {
+                connection.release(); // Soltamos el vaso
+                return res.status(500).json({ mensaje: 'Error en servidor.' });
             }
 
-            const precioPorNoche = results[0].precio_base;
+            const checkAvailabilitySQL = `
+                SELECT th.precio_base FROM habitacion h
+                JOIN tipos_habitacion th ON h.id_tipo = th.id_tipo
+                WHERE h.id_habitacion = ? AND h.id_habitacion NOT IN (
+                    SELECT id_habitacion FROM reservas
+                    WHERE (fecha_inicio < ? AND fecha_fin > ?) AND estado != 'Cancelada'
+                ) FOR UPDATE;
+            `;
 
-            const createReservation = (idCliente) => {
-                const codigoReserva = `RES-${Date.now()}`;
-                const datosReserva = {
-                    codigo_reserva: codigoReserva,
-                    id_cliente: idCliente,
-                    id_habitacion, fecha_inicio, fecha_fin, num_huespedes,
-                    precio_por_noche: precioPorNoche
-                };
-
-                // 1. PRIMERO, INSERTAMOS LA RESERVA
-                db.query("INSERT INTO reservas SET ?", datosReserva, (err, insertResult) => {
-                    if (err) return db.rollback(() => res.status(500).json({ mensaje: 'Error al crear la reserva.' }));
-
-                    // 2. AHORA QUE SÍ TENEMOS 'insertResult', OBTENEMOS EL ID
-                    const idNuevaReserva = insertResult.insertId;
-                    const historialData = {
-                        id_reserva: idNuevaReserva,
-                        estado_nuevo: 'Pendiente',
-                        modificado_por: `Cliente ID: ${idCliente}`
-                    };
-
-                    // 3. Y LUEGO INSERTAMOS EN EL HISTORIAL
-                    const insertHistorialSQL = "INSERT INTO historial_reservas SET ?";
-                    db.query(insertHistorialSQL, historialData, (err) => {
-                        if (err) return db.rollback(() => res.status(500).json({ mensaje: 'Error al registrar historial.' }));
-
-                        // 4. SI TODO SALIÓ BIEN, CONFIRMAMOS
-                        db.commit(err => {
-                            if (err) return db.rollback(() => res.status(500).json({ mensaje: 'Error al confirmar.' }));
-                            res.status(201).json({ mensaje: 'Reserva creada con éxito', codigo: codigoReserva });
-                        });
-                    });
-                });
-            };
-
-            db.query("SELECT id_cliente FROM clientes WHERE email = ?", [cliente.email], (err, clientResults) => {
-                if (err) return db.rollback(() => res.status(500).json({ mensaje: 'Error al buscar cliente.' }));
-
-                if (clientResults.length > 0) {
-                    createReservation(clientResults[0].id_cliente);
-                } else {
-                    bcrypt.hash('12345', 10, (err, hash) => {
-                        const newClientData = { ...cliente, contrasena: hash };
-                        db.query("INSERT INTO clientes SET ?", newClientData, (err, resultInsert) => {
-                            if (err) return db.rollback(() => res.status(500).json({ mensaje: 'Error al crear cliente.' }));
-                            createReservation(resultInsert.insertId);
-                        });
+            connection.query(checkAvailabilitySQL, [id_habitacion, fecha_fin, fecha_inicio], (err, results) => {
+                if (err || results.length === 0) {
+                    return connection.rollback(() => {
+                        connection.release(); // Soltamos el vaso
+                        res.status(409).json({ mensaje: 'Habitación no disponible.' });
                     });
                 }
+
+                const precioPorNoche = results[0].precio_base;
+
+                const createReservation = (idCliente) => {
+                    const codigoReserva = `RES-${Date.now()}`;
+                    const datosReserva = {
+                        codigo_reserva: codigoReserva,
+                        id_cliente: idCliente,
+                        id_habitacion, fecha_inicio, fecha_fin, num_huespedes,
+                        precio_por_noche: precioPorNoche
+                    };
+
+                    connection.query("INSERT INTO reservas SET ?", datosReserva, (err, insertResult) => {
+                        if (err) return connection.rollback(() => {
+                            connection.release(); // Soltamos el vaso
+                            res.status(500).json({ mensaje: 'Error al crear la reserva.' });
+                        });
+
+                        const idNuevaReserva = insertResult.insertId;
+                        const historialData = {
+                            id_reserva: idNuevaReserva,
+                            estado_nuevo: 'Pendiente',
+                            modificado_por: `Cliente ID: ${idCliente}`
+                        };
+
+                        connection.query("INSERT INTO historial_reservas SET ?", historialData, (err) => {
+                            if (err) return connection.rollback(() => {
+                                connection.release(); // Soltamos el vaso
+                                res.status(500).json({ mensaje: 'Error al registrar historial.' });
+                            });
+
+                            // 3. Si todo salió bien, confirmamos y soltamos el vaso
+                            connection.commit(err => {
+                                if (err) return connection.rollback(() => {
+                                    connection.release(); // Soltamos el vaso
+                                    res.status(500).json({ mensaje: 'Error al confirmar.' });
+                                });
+
+                                connection.release(); // ¡Soltamos el vaso!
+                                res.status(201).json({ mensaje: 'Reserva creada con éxito', codigo: codigoReserva });
+                            });
+                        });
+                    });
+                };
+
+                connection.query("SELECT id_cliente FROM clientes WHERE email = ?", [cliente.email], (err, clientResults) => {
+                    if (err) return connection.rollback(() => {
+                        connection.release(); // Soltamos el vaso
+                        res.status(500).json({ mensaje: 'Error al buscar cliente.' });
+                    });
+
+                    if (clientResults.length > 0) {
+                        createReservation(clientResults[0].id_cliente);
+                    } else {
+                        bcrypt.hash('12345', 10, (err, hash) => {
+                            const newClientData = { ...cliente, contrasena: hash };
+                            connection.query("INSERT INTO clientes SET ?", newClientData, (err, resultInsert) => {
+                                if (err) return connection.rollback(() => {
+                                    connection.release(); // Soltamos el vaso
+                                    res.status(500).json({ mensaje: 'Error al crear cliente.' });
+                                });
+                                createReservation(resultInsert.insertId);
+                            });
+                        });
+                    }
+                });
             });
         });
     });
