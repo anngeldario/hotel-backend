@@ -87,7 +87,7 @@ app.get('/api/auth/google/callback',
         res.send(`
             <script>
                 localStorage.setItem('authToken', '${token}');
-                window.location.href = '/perfil.html'; 
+                window.location.href = 'https://hotel-oasis-u.netlify.app/perfil.html'; 
             </script>
         `);
     }
