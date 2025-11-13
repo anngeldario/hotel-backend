@@ -81,9 +81,9 @@ app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile',
 app.get('/api/auth/google/callback',
     passport.authenticate('google', { failureRedirect: '/login-cliente.html' }),
     (req, res) => {
-        const payload = { id: cliente.id_cliente, nombre: cliente.nombre, apellido: cliente.apellido, email: cliente.email };
+        const payload = { id: req.user.id_cliente, nombre: req.user.nombre, apellido: req.user.apellido, email: req.user.email };
         const token = jwt.sign(payload, 'tu_llave_secreta_aqui', { expiresIn: '1h' });
-        // Redirigimos a una página que guarda el token y luego va al perfil
+
         res.send(`
             <script>
                 localStorage.setItem('authToken', '${token}');
@@ -100,8 +100,7 @@ app.get('/api/auth/facebook',
 app.get('/api/auth/facebook/callback',
     passport.authenticate('facebook', { failureRedirect: '/login-cliente.html' }),
     function (req, res) {
-        // Mismo proceso que con Google: creamos nuestro token y redirigimos
-        const payload = { id: cliente.id_cliente, nombre: cliente.nombre, apellido: cliente.apellido, email: cliente.email };
+        const payload = { id: req.user.id_cliente, nombre: req.user.nombre, apellido: req.user.apellido, email: req.user.email };
         const token = jwt.sign(payload, 'tu_llave_secreta_aqui', { expiresIn: '1h' });
 
         res.send(`
