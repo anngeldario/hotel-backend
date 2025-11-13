@@ -78,18 +78,18 @@ passport.use(new FacebookStrategy({
 // ---- ENDPOINTS DE AUTENTICACIÓN ----
 app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
+// ---- CÓDIGO ARREGLADO (GOOGLE) ----
 app.get('/api/auth/google/callback',
-    passport.authenticate('google', { failureRedirect: '/login-cliente.html' }),
+    passport.authenticate('google', {
+        // Pon tu URL de Netlify aquí
+        failureRedirect: 'https://TU-URL-DE-NETLIFY.netlify.app/login-cliente.html'
+    }),
     (req, res) => {
         const payload = { id: req.user.id_cliente, nombre: req.user.nombre, apellido: req.user.apellido, email: req.user.email };
         const token = jwt.sign(payload, 'tu_llave_secreta_aqui', { expiresIn: '1h' });
 
-        res.send(`
-            <script>
-                localStorage.setItem('authToken', '${token}');
-                window.location.href = 'https://hotel-oasis-u.netlify.app/perfil.html'; 
-            </script>
-        `);
+        // ¡EL ARREGLO ESTÁ AQUÍ! Redirigimos al frontend con el token en la URL
+        res.redirect(`https://TU-URL-DE-NETLIFY.netlify.app/perfil.html?token=${token}`);
     }
 );
 
