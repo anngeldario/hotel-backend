@@ -94,14 +94,23 @@ app.get('/api/auth/google/callback',
 );
 
 
-// ---- CÓDIGO CORREGIDO PARA FACEBOOK ----
+// ==========================================
+// ZONA DE FACEBOOK (INICIO Y CALLBACK)
+// ==========================================
+
+// 1. RUTA DE INICIO: Esta es la que faltaba. Inicia el viaje a Facebook.
+app.get('/api/auth/facebook',
+    passport.authenticate('facebook', { scope: ['email'] })
+);
+
+// 2. RUTA DE CALLBACK: Esta es la que recibe al usuario de vuelta.
 app.get('/api/auth/facebook/callback',
     passport.authenticate('facebook', {
-        // Asegúrate de que esta URL sea la de TU sitio de usuarios en Netlify
+        // Asegúrate que esta sea tu URL de Netlify
         failureRedirect: 'https://hotel-oasis-u.netlify.app/login-cliente.html'
     }),
     function (req, res) {
-        // Generamos el token con los datos del usuario (req.user)
+        // Generamos el token
         const payload = {
             id: req.user.id_cliente,
             nombre: req.user.nombre,
@@ -110,8 +119,8 @@ app.get('/api/auth/facebook/callback',
         };
         const token = jwt.sign(payload, 'tu_llave_secreta_aqui', { expiresIn: '1h' });
 
-        // ¡ESTA ES LA CLAVE! Usamos res.redirect en lugar de res.send
-        // Asegúrate de poner TU URL de Netlify aquí también
+        // Redirigimos al perfil con el token
+        // Asegúrate que esta sea tu URL de Netlify
         res.redirect(`https://hotel-oasis-u.netlify.app/perfil.html?token=${token}`);
     }
 );
