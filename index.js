@@ -82,34 +82,40 @@ app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile',
 app.get('/api/auth/google/callback',
     passport.authenticate('google', {
         // Pon tu URL de Netlify aquí
-        failureRedirect: 'https://hotel-oasis-u.netlify.app//login-cliente.html'
+        failureRedirect: 'https://hotel-oasis-u.netlify.app/login-cliente.html'
     }),
     (req, res) => {
         const payload = { id: req.user.id_cliente, nombre: req.user.nombre, apellido: req.user.apellido, email: req.user.email };
         const token = jwt.sign(payload, 'tu_llave_secreta_aqui', { expiresIn: '1h' });
 
         // ¡EL ARREGLO ESTÁ AQUÍ! Redirigimos al frontend con el token en la URL
-        res.redirect(`https://hotel-oasis-u.netlify.app//perfil.html?token=${token}`);
+        res.redirect(`https://hotel-oasis-u.netlify.app/perfil.html?token=${token}`);
     }
 );
 
-// --- RUTAS PARA AUTENTICACIÓN CON FACEBOOK ---
-app.get('/api/auth/facebook',
-    passport.authenticate('facebook', { scope: ['email'] })); // Pedimos permiso para el email
 
+// ---- CÓDIGO CORREGIDO PARA FACEBOOK ----
 app.get('/api/auth/facebook/callback',
-    passport.authenticate('facebook', { failureRedirect: '/login-cliente.html' }),
+    passport.authenticate('facebook', {
+        // Asegúrate de que esta URL sea la de TU sitio de usuarios en Netlify
+        failureRedirect: 'https://hotel-oasis-u.netlify.app/login-cliente.html'
+    }),
     function (req, res) {
-        const payload = { id: req.user.id_cliente, nombre: req.user.nombre, apellido: req.user.apellido, email: req.user.email };
+        // Generamos el token con los datos del usuario (req.user)
+        const payload = {
+            id: req.user.id_cliente,
+            nombre: req.user.nombre,
+            apellido: req.user.apellido,
+            email: req.user.email
+        };
         const token = jwt.sign(payload, 'tu_llave_secreta_aqui', { expiresIn: '1h' });
 
-        res.send(`
-        <script>
-            localStorage.setItem('authToken', '${token}');
-            window.location.href = '/perfil.html';
-        </script>
-    `);
-    });
+        // ¡ESTA ES LA CLAVE! Usamos res.redirect en lugar de res.send
+        // Asegúrate de poner TU URL de Netlify aquí también
+        res.redirect(`https://hotel-oasis-u.netlify.app/perfil.html?token=${token}`);
+    }
+);
+
 
 // ---- ENDPOINTS DE CLIENTES ----
 app.post('/api/clientes/login', (req, res) => {
