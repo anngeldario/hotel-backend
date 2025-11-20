@@ -46,31 +46,54 @@ passport.use(new GoogleStrategy({
     }
 ));
 
+
+// ---- ESTRATEGIA DE FACEBOOK CORREGIDA (VINCULA CUENTAS) ----
 passport.use(new FacebookStrategy({
     clientID: '1324693822497118',
     clientSecret: '31872c795ec0ff8bcd496afee643eb7a',
     callbackURL: "https://hotel-backend-production-ed93.up.railway.app/api/auth/facebook/callback",
-    profileFields: ['id', 'displayName', 'emails'] // Pedimos estos datos a Facebook
+    profileFields: ['id', 'displayName', 'emails']
 },
     function (accessToken, refreshToken, profile, done) {
         const facebookId = profile.id;
-        const email = profile.emails ? profile.emails[0].value : null; // El email puede ser nulo
+        const email = profile.emails ? profile.emails[0].value : null;
         const nombreCompleto = profile.displayName.split(' ');
         const nombre = nombreCompleto[0];
         const apellido = nombreCompleto.slice(1).join(' ');
 
+        // 1. Buscamos si ya existe por ID de Facebook
         db.query('SELECT * FROM clientes WHERE facebook_id = ?', [facebookId], (err, results) => {
             if (err) { return done(err); }
+
             if (results.length > 0) {
+                // ¡Encontrado por Facebook ID! Todo bien.
                 return done(null, results[0]);
-            } else {
-                const nuevoCliente = { nombre, apellido, email, facebook_id: facebookId, contrasena: 'facebook-provided' };
-                db.query('INSERT INTO clientes SET ?', nuevoCliente, (err, insertResult) => {
-                    if (err) { return done(err); }
-                    nuevoCliente.id_cliente = insertResult.insertId;
-                    return done(null, nuevoCliente);
-                });
             }
+
+            // 2. Si no existe por ID, buscamos por EMAIL (para evitar el error de duplicado)
+            db.query('SELECT * FROM clientes WHERE email = ?', [email], (err, emailResults) => {
+                if (err) { return done(err); }
+
+                if (emailResults.length > 0) {
+                    // 3. ¡El email ya existe! (Viene de Google o Registro Manual)
+                    // Actualizamos ese usuario para "pegarle" el ID de Facebook
+                    const usuarioExistente = emailResults[0];
+                    db.query('UPDATE clientes SET facebook_id = ? WHERE id_cliente = ?', [facebookId, usuarioExistente.id_cliente], (err) => {
+                        if (err) { return done(err); }
+                        // Le añadimos el dato en memoria para que pase al login
+                        usuarioExistente.facebook_id = facebookId;
+                        return done(null, usuarioExistente);
+                    });
+                } else {
+                    // 4. No existe ni el ID ni el Email. Creamos uno totalmente nuevo.
+                    const nuevoCliente = { nombre, apellido, email, facebook_id: facebookId, contrasena: 'facebook-provided' };
+                    db.query('INSERT INTO clientes SET ?', nuevoCliente, (err, insertResult) => {
+                        if (err) { return done(err); }
+                        nuevoCliente.id_cliente = insertResult.insertId;
+                        return done(null, nuevoCliente);
+                    });
+                }
+            });
         });
     }
 ));
