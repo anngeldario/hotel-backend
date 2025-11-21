@@ -45,12 +45,13 @@ passport.use(new GoogleStrategy({
         });
     }
 ));
-
+//clientID: '1324693822497118',
+//  clientSecret: '31872c795ec0ff8bcd496afee643eb7a',
 
 // ---- ESTRATEGIA DE FACEBOOK CORREGIDA (VINCULA CUENTAS) ----
 passport.use(new FacebookStrategy({
     clientID: '1324693822497118',
-    clientSecret: '31872c795ec0ff8bcd496afee643eb7a',
+    clientSecret: '31872c795ec0ff8bcd496afee643eb7a', // <--- ¡REVISA QUE ESTE SEA TU SECRETO CORRECTO!
     callbackURL: "https://hotel-backend-production-ed93.up.railway.app/api/auth/facebook/callback",
     profileFields: ['id', 'displayName', 'emails']
 },
