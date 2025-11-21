@@ -135,14 +135,14 @@ app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile',
 app.get('/api/auth/google/callback',
     passport.authenticate('google', {
         // Pon tu URL de Netlify aquí
-        failureRedirect: 'https://hotel-oasis-u.netlify.app/login-cliente.html'
+        failureRedirect: 'https://usuarios-hotel-oasis.netlify.app/login-cliente.html'
     }),
     (req, res) => {
         const payload = { id: req.user.id_cliente, nombre: req.user.nombre, apellido: req.user.apellido, email: req.user.email };
         const token = jwt.sign(payload, 'tu_llave_secreta_aqui', { expiresIn: '1h' });
 
         // ¡EL ARREGLO ESTÁ AQUÍ! Redirigimos al frontend con el token en la URL
-        res.redirect(`https://hotel-oasis-u.netlify.app/perfil.html?token=${token}`);
+        res.redirect(`https://usuarios-hotel-oasis.netlify.app/perfil.html?token=${token}`);
     }
 );
 
@@ -160,7 +160,7 @@ app.get('/api/auth/facebook',
 app.get('/api/auth/facebook/callback',
     passport.authenticate('facebook', {
         // Asegúrate que esta sea tu URL de Netlify
-        failureRedirect: 'https://hotel-oasis-u.netlify.app/login-cliente.html'
+        failureRedirect: 'https://usuarios-hotel-oasis.netlify.app/login-cliente.html'
     }),
     function (req, res) {
         // Generamos el token
@@ -174,7 +174,7 @@ app.get('/api/auth/facebook/callback',
 
         // Redirigimos al perfil con el token
         // Asegúrate que esta sea tu URL de Netlify
-        res.redirect(`https://hotel-oasis-u.netlify.app/perfil.html?token=${token}`);
+        res.redirect(`https://usuarios-hotel-oasis.netlify.app/perfil.html?token=${token}`);
     }
 );
 
