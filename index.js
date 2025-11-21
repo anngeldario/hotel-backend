@@ -22,31 +22,60 @@ app.use(passport.session());
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((user, done) => done(null, user));
 
+
+// ---- ESTRATEGIA DE GOOGLE CORREGIDA (VINCULA CUENTAS) ----
 passport.use(new GoogleStrategy({
-    // ¡IMPORTANTE! VUELVE A PEGAR TUS CREDENCIALES CORRECTAS AQUÍ
     clientID: '663221233013-nuneg2t42auu4ccptrdffnc1g1l2dpr1.apps.googleusercontent.com', // NO debe empezar con http://
     clientSecret: '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',
     callbackURL: "https://hotel-backend-production-ed93.up.railway.app/api/auth/google/callback"
 },
     (accessToken, refreshToken, profile, done) => {
         const { id, name, emails } = profile;
+        const email = emails[0].value;
+
+        // 1. Buscamos si ya existe por ID de Google
         db.query('SELECT * FROM clientes WHERE google_id = ?', [id], (err, results) => {
             if (err) return done(err);
+
             if (results.length > 0) {
+                // ¡Encontrado por Google ID! Todo bien.
                 return done(null, results[0]);
-            } else {
-                const nuevoCliente = { nombre: name.givenName, apellido: name.familyName, email: emails[0].value, google_id: id, contrasena: 'google-provided' };
-                db.query('INSERT INTO clientes SET ?', nuevoCliente, (err, insertResult) => {
-                    if (err) return done(err);
-                    nuevoCliente.id_cliente = insertResult.insertId;
-                    return done(null, nuevoCliente);
-                });
             }
+
+            // 2. Si no existe por ID, buscamos por EMAIL (para evitar duplicados)
+            db.query('SELECT * FROM clientes WHERE email = ?', [email], (err, emailResults) => {
+                if (err) return done(err);
+
+                if (emailResults.length > 0) {
+                    // 3. ¡El email ya existe! (Viene de Facebook o Registro Manual)
+                    // Actualizamos ese usuario para "pegarle" el ID de Google
+                    const usuarioExistente = emailResults[0];
+                    db.query('UPDATE clientes SET google_id = ? WHERE id_cliente = ?', [id, usuarioExistente.id_cliente], (err) => {
+                        if (err) return done(err);
+                        // Le añadimos el dato en memoria para que pase al login
+                        usuarioExistente.google_id = id;
+                        return done(null, usuarioExistente);
+                    });
+                } else {
+                    // 4. No existe ni el ID ni el Email. Creamos uno totalmente nuevo.
+                    const nuevoCliente = {
+                        nombre: name.givenName,
+                        apellido: name.familyName,
+                        email: email,
+                        google_id: id,
+                        contrasena: 'google-provided'
+                    };
+                    db.query('INSERT INTO clientes SET ?', nuevoCliente, (err, insertResult) => {
+                        if (err) return done(err);
+                        nuevoCliente.id_cliente = insertResult.insertId;
+                        return done(null, nuevoCliente);
+                    });
+                }
+            });
         });
     }
 ));
-//clientID: '1324693822497118',
-//  clientSecret: '31872c795ec0ff8bcd496afee643eb7a',
+
 
 // ---- ESTRATEGIA DE FACEBOOK CORREGIDA (VINCULA CUENTAS) ----
 passport.use(new FacebookStrategy({
